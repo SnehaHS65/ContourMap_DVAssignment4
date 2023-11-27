@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CT Scan Contour Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        #slider {
+            padding-left: 5%;
+            padding-top: 5%;
+            padding-bottom: 5%;
+        }
+
+        #canvas {
+            padding-left: 5%;
+        }
+
+        label {
+            font-family: sans-serif;
+            font-size: larger;
+        }
+    </style>
+</head>
+<body>
+<div id="slider">
+    <label for="threshold">Threshold</label>
+    <input type="range" min="0" max="255" value="8" id="threshold" width="150px">
+</div>
+<div id="canvas">
+    <svg viewBox="0 0 800 600"></svg>
+</div>
+<script>
+    const svg = d3.select('svg');
+
+    // Load the CT scan data from Data_CT.csv or any other file
+    d3.csv('data/Data_CT.csv').then(function (data) {
+        let values = data.map(d => +d[0]);
+        const m = 512;
+        const n = 512;
+
+        function draw(threshold) {
+            const contourGenerator = d3.contours()
+                .size([m, n])
+                .thresholds(d3.range(d3.min(values), d3.max(values), threshold));
+
+            const contours = contourGenerator(values);
+
+            const path = d3.geoPath();
+
+            let minMax = d3.extent(contours, d => d.value);
+
+            const colorScale = d3.scaleSequential()
+                .domain(minMax)
+                .interpolator(d3.interpolateViridis);
+            
+            //     const colorScale = d3.scaleDiverging()
+            // .domain(minMax)
+            // .interpolator(d3.interpolateRdBu);
+
+            svg.selectAll('path').remove();
+
+            svg.selectAll('path')
+                .data(contours)
+                .enter()
+                .append('path')
+                .attr('d', path)
+                .attr('stroke', 'black')
+                .attr('fill', d => colorScale(d.value))
+                .attr('stroke-linejoin', 'round')
+                .attr('stroke-width', '0px');
+        }
+
+        draw(8);
+
+        d3.select("#threshold").on("input", function () {
+            const thresholdValue = +this.value;
+            draw(thresholdValue);
+        });
+    });
+</script>
+</body>
+</html>
