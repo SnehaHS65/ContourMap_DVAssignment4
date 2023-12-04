@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>CT Scan Contour Visualization</title>
@@ -21,62 +22,172 @@
         }
     </style>
 </head>
+
 <body>
-<div id="slider">
-    <label for="threshold">Threshold</label>
-    <input type="range" min="0" max="255" value="8" id="threshold" width="150px">
-</div>
-<div id="canvas">
-    <svg viewBox="0 0 800 600"></svg>
-</div>
-<script>
-    const svg = d3.select('svg');
+    <h1 style="text-align: center;">Major Assignment 4</h1>
+        <h2 style="text-align: center;">Sneha Holehonnur Sridhar</h2>
+        <h3 style="text-align: center;">Student ID: 02130456</h3>
+    <div id="slider">
+        <label for="threshold">Threshold</label>
+        <input type="range" min="50" max="1000" value="60" id="threshold" width="150px">
+    </div>
+    <div id="canvas">
+        <svg viewBox="0 0 800 600"></svg>
+    </div>
+    </div>
+    <div id="color-bar"></div>
+    <script>
+        const svg = d3.select('svg');
+        const colorBarDiv = d3.select('#color-bar');
+        const colorBarWidth = 800;
+        const colorBarHeight = 30;
 
-    // Load the CT scan data from Data_CT.csv or any other file
-    d3.csv('data/Data_CT.csv').then(function (data) {
-        let values = data.map(d => +d[0]);
-        const m = 512;
-        const n = 512;
+        // Load the CT scan data from Data_CT.csv or any other file
+        d3.csv('data/Data_CT.csv').then(function (data) {
+            const values = data.map(d => +d[0]);
+            const m = 512;
+            const n = 512;
 
-        function draw(threshold) {
-            const contourGenerator = d3.contours()
-                .size([m, n])
-                .thresholds(d3.range(d3.min(values), d3.max(values), threshold));
+            const body = d3.select('body');
 
-            const contours = contourGenerator(values);
+// Append an h1 element to the body
+const h3 = body.append('h3');
 
-            const path = d3.geoPath();
+// Set text or content for the h1 element
+h3.text('BrushX - Bonus Point');
 
-            let minMax = d3.extent(contours, d => d.value);
+            const extent = d3.extent(values, function (d) { return d; });
+            // console.log(extent)
 
-            const colorScale = d3.scaleSequential()
-                .domain(minMax)
-                .interpolator(d3.interpolateViridis);
-            
-            //     const colorScale = d3.scaleDiverging()
-            // .domain(minMax)
-            // .interpolator(d3.interpolateRdBu);
+            let dynamicMin = extent[0];
+            let dynamicMax = extent[1];
 
-            svg.selectAll('path').remove();
+            // Create color bar
+            const colorRange = d3.range(extent[0], extent[1], 10); // Customize the color bar range as needed
 
-            svg.selectAll('path')
-                .data(contours)
+            const colorScale = d3.scaleLinear()
+                .domain([0, colorRange.length - 1])
+                .range([0, colorBarWidth]);
+
+            const colorBar = colorBarDiv.append('svg')
+                .attr('width', colorBarWidth)
+                .attr('height', colorBarHeight);
+
+            const colorRects = colorBar.selectAll('rect')
+                .data(colorRange)
                 .enter()
-                .append('path')
-                .attr('d', path)
-                .attr('stroke', 'black')
-                .attr('fill', d => colorScale(d.value))
-                .attr('stroke-linejoin', 'round')
-                .attr('stroke-width', '0px');
-        }
+                .append('rect')
+                .attr('x', (_, i) => colorScale(i))
+                .attr('y', 0)
+                .attr('width', colorBarWidth / colorRange.length)
+                .attr('height', colorBarHeight)
+                .attr('fill', d => d3.interpolateViridis(d));
 
-        draw(8);
+            // Add brush to color bar
+            const brush = d3.brushX()
+                .extent([[0, 0], [colorBarWidth, colorBarHeight]])
+                .on("brush", brushed);
 
-        d3.select("#threshold").on("input", function () {
-            const thresholdValue = +this.value;
-            draw(thresholdValue);
+            colorBar.append("g")
+                .attr("class", "brush")
+                .call(brush)
+                .call(brush.move, [colorScale(20), colorScale(50)]); // Set default brush selection
+
+            function brushed(event) {
+                const selection = event.selection;
+                if (selection) {
+                    const [brushMin, brushMax] = selection.map(colorScale.invert);
+
+                    // Update the contour map based on the brushX selection
+                    svg.selectAll('*').remove();
+
+                    draw1(
+                        brushMin,
+                        brushMax
+                    );
+                }
+            }
+
+
+
+            function draw1(minVal, maxVal) {
+                // Update the dynamic min and max values based on the brushX selection
+                dynamicMin = minVal;
+                dynamicMax = maxVal;
+
+                const contourGenerator = d3.contours()
+                    .size([m, n])
+                    .thresholds(d3.range(dynamicMin, dynamicMax, 60))(values);
+
+                const path = d3.geoPath();
+
+                let minMax = d3.extent(contourGenerator, d => d.value);
+
+                // console.log(minMax)
+
+
+                const colorScale = d3.scaleSequential()
+                    .domain(minMax)
+                    .interpolator(d3.interpolateViridis);
+
+                svg.selectAll('path').remove();
+
+                svg.selectAll('path')
+                    .data(contourGenerator)
+                    .enter()
+                    .append('path')
+                    .attr('d', path)
+                    .attr('stroke', 'black')
+                    .attr('fill', d => colorScale(d.value))
+                    .attr('stroke-linejoin', 'round')
+                    .attr('stroke-width', '0px');
+            }
+
+            draw1(dynamicMin, dynamicMax);
+
+            function draw(threshold) {
+                const contourGenerator = d3.contours()
+                    .size([m, n])
+                    .thresholds(d3.range(d3.min(values), d3.max(values), threshold));
+
+                const contours = contourGenerator(values);
+
+                const path = d3.geoPath();
+
+                let minMax = d3.extent(contours, d => d.value);
+
+                // console.log(minMax)
+
+
+                const colorScale = d3.scaleSequential()
+                    .domain(minMax)
+                    .interpolator(d3.interpolateViridis);
+
+
+                svg.selectAll('path').remove();
+
+                svg.selectAll('path')
+                    .data(contours)
+                    .enter()
+                    .append('path')
+                    .attr('d', path)
+                    .attr('stroke', 'black')
+                    .attr('fill', d => colorScale(d.value))
+                    .attr('stroke-linejoin', 'round')
+                    .attr('stroke-width', '0px');
+            }
+
+            draw(60);
+
+            d3.select("#threshold").on("input", function () {
+                const thresholdValue = +this.value;
+                draw(thresholdValue);
+            });
+
+
+
         });
-    });
-</script>
+    </script>
 </body>
+
 </html>
